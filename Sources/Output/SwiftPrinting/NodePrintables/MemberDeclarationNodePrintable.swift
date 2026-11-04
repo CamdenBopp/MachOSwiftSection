@@ -147,7 +147,11 @@ extension MemberDeclarationNodePrintable {
     /// printable requirements.
     mutating func printWhereClause(of node: Node) async {
         guard let genericSignature = node.first(of: .dependentGenericSignature) else { return }
-        let requirements = genericSignature.all(of: .printableRequirementKinds)
+        // Walks the whole tree: a constrained existential's own requirements
+        // are about its `Self`, not this declaration.
+        let requirements = genericSignature.all(of: .printableRequirementKinds).filter {
+            $0.children.first?.first(of: .constrainedExistentialSelf) == nil
+        }
         for (offset, requirement) in requirements.offsetEnumerated() {
             if offset.isStart {
                 target.writeSpace()
