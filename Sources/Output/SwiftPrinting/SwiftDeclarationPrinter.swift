@@ -1022,8 +1022,39 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         }
         try await printUnderObjCVerdicts(of: variable.resolvedObjCMemberFacts(trustingSelectorNameEvidence:)) { objcFacts in
             objcAttributes(objcFacts)
-            var printer = SemanticVariableNodePrinter(isStored: variable.isStored, isOverride: objcFacts.isOverride, isClassMember: objcFacts.isClassMember, isFinal: objcFacts.isFinal, accessorKeywords: AccessorBlockKeywords(of: variable), indentation: level, delegate: self)
+            var printer = SemanticVariableNodePrinter(isStored: variable.isStored, isOverride: objcFacts.isOverride, isClassMember: objcFacts.isClassMember, isFinal: objcFacts.isFinal, accessorKeywords: AccessorBlockKeywords(of: variable), indentation: level, delegate: self, storedKeyword: storedKeyword(of: variable))
             try await printer.printRoot(variable.node.materialize())
+        }
+    }
+
+    /// What a global or static's storage says about `let` and `var`, for one
+    /// no setter speaks for: a global has no accessors of its own to read, so
+    /// `AccessorBlockKeywords` said `let` for every one of them.
+    ///
+    /// Across `-O`, `-Onone`, `-Osize` and library evolution, 31 declarations
+    /// each: storage in `__DATA,__data` initialized in the file was always a
+    /// `var`, in a `__const` section always a `let`. A global initialized
+    /// lazily is all zero in the file whichever it was declared, so it says
+    /// neither. It is usually zero-fill (`__common`, `__bss`), but not always:
+    /// the toolchain's own `libSwiftOperators` keeps `standardOperators`, with
+    /// its once token, in `__data`. So `__data` needs a nonzero first byte. One
+    /// byte, because more could run past a small global into its neighbour; a
+    /// `var` whose first byte is zero declines. A symbol in no section read
+    /// here says nothing either.
+    private func storedKeyword(of variable: VariableDefinition) -> String? {
+        guard variable.isGlobalOrStatic, variable.isStored, !variable.hasSetter, !variable.hasModifyAccessor else { return nil }
+        let undecided = "/* let or var */"
+        guard let storage = variable.accessors.first(where: { $0.kind == .none }) else { return undecided }
+        let address = UInt64(machO.address(forOffset: storage.symbol.offset))
+        guard let section = machO.sections.first(where: {
+            UInt64($0.address) <= address && address < UInt64($0.address) + UInt64($0.size)
+        }) else { return undecided }
+        switch section.sectionName {
+        case "__data":
+            let firstByte: UInt8? = try? machO.readElement(offset: storage.symbol.offset)
+            return section.segmentName == "__DATA" && (firstByte ?? 0) != 0 ? "var" : undecided
+        case "__const": return "let"
+        default: return undecided
         }
     }
 

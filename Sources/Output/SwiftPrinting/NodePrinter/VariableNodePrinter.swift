@@ -32,9 +32,14 @@ struct VariableNodePrinter<Target: NodePrinterTarget>: MemberDeclarationNodePrin
 
     private let indentation: Int
 
+    /// The keyword a stored global's storage proves, in place of the one its
+    /// accessors imply.
+    private let storedKeyword: String?
+
     static var declarationNodeKinds: Set<Node.Kind> { variableDeclarationNodeKinds }
 
-    init(isStored: Bool, isOverride: Bool, isClassMember: Bool = false, isFinal: Bool = false, accessorKeywords: AccessorBlockKeywords, indentation: Int, delegate: (any NodePrintableDelegate)? = nil) {
+    init(isStored: Bool, isOverride: Bool, isClassMember: Bool = false, isFinal: Bool = false, accessorKeywords: AccessorBlockKeywords, indentation: Int, delegate: (any NodePrintableDelegate)? = nil, storedKeyword: String? = nil) {
+        self.storedKeyword = storedKeyword
         self.isStored = isStored
         self.isOverride = isOverride
         self.isClassMember = isClassMember
@@ -61,7 +66,7 @@ struct VariableNodePrinter<Target: NodePrinterTarget>: MemberDeclarationNodePrin
             throw MemberDeclarationPrintError.missingIdentifier(node)
         }
 
-        target.write(isStored && !accessorKeywords.hasWriteAccessor ? "let" : "var", context: .context(state: .printKeyword))
+        target.write(storedKeyword ?? (isStored && !accessorKeywords.hasWriteAccessor ? "let" : "var"), context: .context(state: .printKeyword))
         target.writeSpace()
         target.write(identifier.text ?? "", context: .context(for: identifier, parentKind: .variable, state: .printIdentifier))
         target.write(": ")
