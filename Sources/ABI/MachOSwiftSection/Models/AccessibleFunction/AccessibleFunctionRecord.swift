@@ -65,7 +65,7 @@ extension AccessibleFunctionRecord {
     /// or `nil` for a non-generic function — the only nullable pointer in the
     /// record.
     public func genericEnvironment(in context: some ReadingContext) throws -> GenericEnvironment? {
-        guard let genericEnvironmentOffset = resolvedDirectOffset(from: \.genericEnvironment) else { return nil }
+        guard let genericEnvironmentOffset = resolvedDirectOffset(from: \.genericEnvironment, in: context) else { return nil }
         return try GenericEnvironment.resolve(at: try context.addressFromOffset(genericEnvironmentOffset), in: context)
     }
 
@@ -73,7 +73,7 @@ extension AccessibleFunctionRecord {
     /// for `MachOContext`, a pointer in-process). The pointer is non-nullable
     /// in the ABI, so `nil` means the record is malformed.
     public func functionAddress<Context: ReadingContext>(in context: Context) throws -> Context.Address? {
-        guard let functionOffset = resolvedDirectOffset(from: \.function) else { return nil }
+        guard let functionOffset = resolvedDirectOffset(from: \.function, in: context) else { return nil }
         return try context.addressFromOffset(functionOffset)
     }
 }

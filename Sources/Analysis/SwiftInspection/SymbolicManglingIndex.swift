@@ -316,7 +316,7 @@ package final class SymbolicManglingIndex: @unchecked Sendable {
             references.append(SymbolicManglingReference(
                 kind: .init(rawValue: relativeReference.kind),
                 referenceOffset: lookup.offset,
-                referencedOffset: lookup.offset + Int(relativeReference.relativeOffset),
+                referencedOffset: machO.advancedOffset(lookup.offset, by: Int(relativeReference.relativeOffset)),
                 symbolPosition: UInt32(symbolPosition),
                 referentIndex: UInt16(referentIndex)
             ))

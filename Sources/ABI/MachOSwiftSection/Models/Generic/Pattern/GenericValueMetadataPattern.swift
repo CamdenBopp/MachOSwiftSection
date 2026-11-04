@@ -45,9 +45,17 @@ extension GenericValueMetadataPattern {
     /// table from another library by storing a pointer to a pointer, with the
     /// low bit set to say so. Only the direct case yields an offset within
     /// this image; ``valueWitnessesIsIndirect`` distinguishes them.
+    @available(*, deprecated, message: "The pointer's delta counts in memory: pass a ReadingContext, valueWitnessesOffset(in: context).")
     public var valueWitnessesOffset: Int? {
         guard !valueWitnessesIsIndirect else { return nil }
         return resolvedDirectOffset(from: \.valueWitnesses)
+    }
+
+    /// ``valueWitnessesOffset`` in `context`, `nil` too when the pointer leads
+    /// to no bytes.
+    public func valueWitnessesOffset(in context: some ReadingContext) -> Int? {
+        guard !valueWitnessesIsIndirect else { return nil }
+        return resolvedDirectOffset(from: \.valueWitnesses, in: context)
     }
 
     /// Whether the value witness table pointer is indirect — that is, whether

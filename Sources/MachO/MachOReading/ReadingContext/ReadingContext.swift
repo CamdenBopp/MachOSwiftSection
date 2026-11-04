@@ -190,6 +190,17 @@ public protocol ReadingContext<Runtime, Address>: Sendable {
     /// - Returns: The computed address
     func advanceAddress(_ address: Address, by offset: Int) -> Address
 
+    /// `address`, or an error if it holds no bytes.
+    ///
+    /// ``advanceAddress(_:by:)`` cannot throw, so a context whose addresses
+    /// can lead nowhere answers it with an address reading refuses. A caller
+    /// that keeps an address rather than reading it asks here first.
+    ///
+    /// - Parameter address: An address from ``advanceAddress(_:by:)``
+    /// - Returns: `address`
+    /// - Throws: `ReadingError.noFileBytes`
+    func checkedAddress(_ address: Address) throws -> Address
+
     /// Advances an address by the size of the given type.
     ///
     /// This is equivalent to `advanceAddress(address, by: MemoryLayout<T>.size)`
@@ -298,6 +309,12 @@ public enum ReadingContextCacheScope: @unchecked Sendable {
 
     /// The context gives no identity; nothing computed from it is memoized.
     case uncached
+}
+
+extension ReadingContext {
+    public func checkedAddress(_ address: Address) throws -> Address {
+        address
+    }
 }
 
 extension ReadingContext {

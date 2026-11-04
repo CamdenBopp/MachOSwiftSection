@@ -65,23 +65,51 @@ extension KeyPathComputedPropertyBody {
     /// Note this is only the location the pointer names; whether the identity
     /// value IS that location, or has to be loaded from it or produced by
     /// calling it, is `header.computedIdentifierResolution`.
+    @available(*, deprecated, message: "The pointer's delta counts in memory: pass a ReadingContext, identifierOffset(in: context).")
     public var identifierOffset: Int? {
         guard header.computedIdentifierKind == .pointer, rawIdentifier != 0 else { return nil }
         return identifierFieldOffset + Int(rawIdentifier)
     }
 
+    /// ``identifierOffset`` in `context`, `nil` too when the pointer leads to
+    /// no bytes.
+    public func identifierOffset(in context: some ReadingContext) -> Int? {
+        guard header.computedIdentifierKind == .pointer, rawIdentifier != 0,
+              let field = try? context.addressFromOffset(identifierFieldOffset),
+              let target = try? context.checkedAddress(context.advanceAddress(field, by: Int(rawIdentifier))) else {
+            return nil
+        }
+        return try? context.offsetFromAddress(target)
+    }
+
     /// Where the getter's implementation lives, `nil` for a null pointer.
     /// Pure relative-pointer arithmetic, like
     /// `MethodDescriptor.implementationOffset`.
+    @available(*, deprecated, message: "The pointer's delta counts in memory: pass a ReadingContext, getterOffset(in: context).")
     public var getterOffset: Int? {
         guard getter.isValid else { return nil }
         return getter.resolveDirectOffset(from: getterFieldOffset)
     }
 
+    /// ``getterOffset`` in `context`, `nil` too when the pointer leads to no
+    /// bytes.
+    public func getterOffset(in context: some ReadingContext) -> Int? {
+        guard getter.isValid else { return nil }
+        return getter.resolveDirectOffset(from: getterFieldOffset, in: context)
+    }
+
     /// Where the setter's implementation lives, `nil` when the component is
     /// not settable or the pointer is null.
+    @available(*, deprecated, message: "The pointer's delta counts in memory: pass a ReadingContext, setterOffset(in: context).")
     public var setterOffset: Int? {
         guard let setter, setter.isValid, let setterFieldOffset else { return nil }
         return setter.resolveDirectOffset(from: setterFieldOffset)
+    }
+
+    /// ``setterOffset`` in `context`, `nil` too when the pointer leads to no
+    /// bytes.
+    public func setterOffset(in context: some ReadingContext) -> Int? {
+        guard let setter, setter.isValid, let setterFieldOffset else { return nil }
+        return setter.resolveDirectOffset(from: setterFieldOffset, in: context)
     }
 }

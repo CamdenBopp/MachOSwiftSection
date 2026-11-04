@@ -10,6 +10,10 @@ public enum ReadingError: Error {
 
     /// The address is invalid or cannot be converted (e.g., null pointer).
     case invalidAddress(Int)
+
+    /// A relative pointer or an address leads to no bytes in the file: into
+    /// memory the loader zero-fills, or outside every segment.
+    case noFileBytes
 }
 
 extension MachONamespace {

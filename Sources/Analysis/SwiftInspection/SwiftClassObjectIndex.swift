@@ -192,12 +192,12 @@ package final class SwiftClassObjectIndex: @unchecked Sendable {
             // record; transient, like every other materialization.
             let classWrapper = try Class(descriptor: descriptor, in: machO.context)
             guard let singletonMetadataInitialization = classWrapper.singletonMetadataInitialization,
-                  let patternOffset = singletonMetadataInitialization.resolvedDirectOffset(from: \.incompleteMetadata)
+                  let patternOffset = singletonMetadataInitialization.resolvedDirectOffset(from: \.incompleteMetadata, in: machO.context)
             else { return nil }
             let pattern = try ResilientClassMetadataPattern.resolve(at: patternOffset, in: machO.context)
             let classFlags = pattern.layout.classFlags
             guard classFlags & ClassFlags.hasCustomObjCName.rawValue != 0,
-                  let readOnlyDataOffset = pattern.resolvedDirectOffset(from: \.data)
+                  let readOnlyDataOffset = pattern.resolvedDirectOffset(from: \.data, in: machO.context)
             else { return nil }
             let readOnlyDataLayout: ObjCClassROData64.Layout = try machO.readElement(offset: readOnlyDataOffset)
             let readOnlyData = ObjCClassROData64(layout: readOnlyDataLayout, offset: readOnlyDataOffset)
@@ -221,7 +221,7 @@ package final class SwiftClassObjectIndex: @unchecked Sendable {
     /// `NSObject` is the only superclass an actor can have.
     private static func customObjCClassName(runtimeName: String, classFlags: UInt32, descriptor: ClassDescriptor) -> CustomObjCClassName {
         let usesSwiftReferenceCounting = classFlags & ClassFlags.usesSwiftRefcounting.rawValue != 0
-        let isNSObjectActor = descriptor.isActor && descriptor.resolvedDirectOffset(from: \.superclassType) != nil
+        let isNSObjectActor = descriptor.isActor && descriptor.layout.superclassType.isValid
         let attribute: CustomObjCClassName.Attribute = !usesSwiftReferenceCounting || isNSObjectActor ? .objc : .objcRuntimeName
         return CustomObjCClassName(name: runtimeName, attribute: attribute)
     }

@@ -33,6 +33,7 @@ extension MachOFile: Readable {
     public func readElement<Element>(
         offset: Int
     ) throws -> Element {
+        guard Self.isReadableOffset(offset) else { throw ReadingError.noFileBytes }
         let originalOffset = offset
         var offset = originalOffset
         var fileIO = fileIO
@@ -50,6 +51,7 @@ extension MachOFile: Readable {
     }
 
     public func readWrapperElement<Element>(offset: Int) throws -> Element where Element: LocatableLayoutWrapper {
+        guard Self.isReadableOffset(offset) else { throw ReadingError.noFileBytes }
         let originalOffset = offset
         var offset = originalOffset
         var fileIO = fileIO
@@ -65,6 +67,7 @@ extension MachOFile: Readable {
         offset: Int,
         numberOfElements: Int
     ) throws -> [Element] {
+        guard Self.isReadableOffset(offset) else { throw ReadingError.noFileBytes }
         let originalOffset = offset
         var offset = originalOffset
         var fileIO = fileIO
@@ -88,6 +91,7 @@ extension MachOFile: Readable {
     }
 
     public func readWrapperElements<Element>(offset: Int, numberOfElements: Int) throws -> [Element] where Element: LocatableLayoutWrapper {
+        guard Self.isReadableOffset(offset) else { throw ReadingError.noFileBytes }
         let originalOffset = offset
         var offset = originalOffset
         var fileIO = fileIO
@@ -105,6 +109,7 @@ extension MachOFile: Readable {
     }
 
     public func readString(offset: Int) throws -> String {
+        guard Self.isReadableOffset(offset) else { throw ReadingError.noFileBytes }
         let originalOffset = offset
         var offset = originalOffset
         var fileIO = fileIO

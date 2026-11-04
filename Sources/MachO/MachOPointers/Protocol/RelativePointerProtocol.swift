@@ -19,12 +19,24 @@ public protocol RelativePointerProtocol<Pointee>: Sendable, Equatable {
 }
 
 extension RelativePointerProtocol {
+    @available(*, deprecated, message: "The delta counts in memory: pass a ReadingContext, resolveDirectOffset(from: offset, in: context).")
     public func resolveDirectOffset(from offset: Int) -> Int {
         return Int(offset) + Int(relativeOffset)
     }
 
     public func resolveDirectAddress<Context: ReadingContext>(at address: Context.Address, in context: Context) throws -> Context.Address {
-        return context.advanceAddress(address, by: .init(relativeOffset))
+        return try context.checkedAddress(context.advanceAddress(address, by: .init(relativeOffset)))
+    }
+
+    /// Where the pointer stored at `offset` leads, as an offset, or `nil` when
+    /// that holds no bytes. The delta counts in memory, so the context says
+    /// where it lands.
+    public func resolveDirectOffset(from offset: Int, in context: some ReadingContext) -> Int? {
+        guard let address = try? context.addressFromOffset(offset),
+              let target = try? resolveDirectAddress(at: address, in: context) else {
+            return nil
+        }
+        return try? context.offsetFromAddress(target)
     }
 
     public var isNull: Bool {

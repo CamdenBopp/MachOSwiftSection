@@ -22,6 +22,7 @@ struct SymbolValueOffsetConverter {
     private struct SegmentMapping {
         let virtualMemoryAddress: UInt64
         let virtualMemorySize: UInt64
+        let fileSize: UInt64
         let fileOffset: Int
     }
 
@@ -46,6 +47,7 @@ struct SymbolValueOffsetConverter {
                 SegmentMapping(
                     virtualMemoryAddress: UInt64($0.virtualMemoryAddress),
                     virtualMemorySize: UInt64($0.virtualMemorySize),
+                    fileSize: UInt64($0.fileSize),
                     fileOffset: $0.fileOffset
                 )
             })
@@ -65,6 +67,13 @@ struct SymbolValueOffsetConverter {
             guard value >= 0 else { return value }
             let address = UInt64(value)
             for segment in segments where address >= segment.virtualMemoryAddress && address - segment.virtualMemoryAddress < segment.virtualMemorySize {
+                // A symbol in the segment's zero fill has no file offset; the
+                // one it would have had names whatever is stored there. Filed
+                // past every file offset, by its address, it collides with no
+                // other symbol and `address(forOffset:)` can still name it.
+                guard address - segment.virtualMemoryAddress < segment.fileSize else {
+                    return MachOFile.unreadableOffset + value
+                }
                 return segment.fileOffset + Int(address - segment.virtualMemoryAddress)
             }
             return value

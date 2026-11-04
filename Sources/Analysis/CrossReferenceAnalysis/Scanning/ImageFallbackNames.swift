@@ -249,18 +249,18 @@ final class ImageFallbackNames: @unchecked Sendable {
             var completionOffset: Int?
             switch typeWrapper {
             case .class(let classType):
-                completionOffset = classType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction)
+                completionOffset = classType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction, in: context)
                 for method in classType.methodDescriptors {
-                    guard let implementationOffset = method.implementationOffset,
+                    guard let implementationOffset = method.implementationOffset(in: context),
                           let implementation = codeAddress(ofImplementationAtOffset: implementationOffset),
                           sources[implementation] == nil
                     else { continue }
                     sources[implementation] = .method(descriptorAddress: address(atOffset: method.offset))
                 }
             case .struct(let structType):
-                completionOffset = structType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction)
+                completionOffset = structType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction, in: context)
             case .enum(let enumType):
-                completionOffset = enumType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction)
+                completionOffset = enumType.singletonMetadataInitialization?.resolvedDirectOffset(from: \.completionFunction, in: context)
             }
             if let completionOffset {
                 let completion = address(atOffset: completionOffset)

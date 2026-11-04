@@ -33,19 +33,19 @@ extension TypeDefinition {
         // without one is SKIPPED, never a reason to abandon the type.
         var implementationOffsetCounts: [Int: Int] = [:]
         for descriptor in classWrapper.methodDescriptors {
-            guard let implementationOffset = descriptor.implementationOffset else { continue }
+            guard let implementationOffset = descriptor.implementationOffset(in: machO.context) else { continue }
             implementationOffsetCounts[implementationOffset, default: 0] += 1
         }
         for descriptor in classWrapper.methodOverrideDescriptors {
-            guard let implementationOffset = descriptor.implementationOffset else { continue }
+            guard let implementationOffset = descriptor.implementationOffset(in: machO.context) else { continue }
             implementationOffsetCounts[implementationOffset, default: 0] += 1
         }
         for descriptor in classWrapper.methodDefaultOverrideDescriptors {
-            guard let implementationOffset = descriptor.implementationOffset else { continue }
+            guard let implementationOffset = descriptor.implementationOffset(in: machO.context) else { continue }
             implementationOffsetCounts[implementationOffset, default: 0] += 1
         }
         for (index, descriptor) in classWrapper.methodDescriptors.enumerated() {
-            guard let implementationOffset = descriptor.implementationOffset else { continue }
+            guard let implementationOffset = descriptor.implementationOffset(in: machO.context) else { continue }
             // Only use offset-based fallback for globally unique implementation addresses
             if implementationOffsetCounts[implementationOffset] == 1 {
                 lookups.implementationOffsetDescriptorLookup[implementationOffset] = .method(descriptor)
@@ -144,7 +144,7 @@ extension TypeDefinition {
              .readCoroutine:
             return nil
         }
-        guard let implementationOffset = descriptor.implementationOffset,
+        guard let implementationOffset = descriptor.implementationOffset(in: machO.context),
               let implementationSymbolName = attributedMember.implementationSymbolName else { return nil }
         // An async method's slot holds its async function pointer — the `Tu`
         // constant a caller reads the context size from — not its code; the
@@ -159,7 +159,7 @@ extension TypeDefinition {
         do {
             // Annotated: the optional-returning overload reads another shape.
             let asyncFunctionPointer: AsyncFunctionPointer = try AsyncFunctionPointer.resolve(at: offset, in: machO.context)
-            return asyncFunctionPointer.resolvedDirectOffset(from: \.function)
+            return asyncFunctionPointer.resolvedDirectOffset(from: \.function, in: machO.context)
         } catch {
             return nil
         }

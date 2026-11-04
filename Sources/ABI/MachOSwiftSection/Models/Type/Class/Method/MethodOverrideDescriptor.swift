@@ -14,8 +14,15 @@ public struct MethodOverrideDescriptor: ResolvableLocatableLayoutWrapper {
 extension MethodOverrideDescriptor {
     /// File offset of the overriding implementation, or `nil` for a null
     /// pointer. See `MethodDescriptor.implementationOffset`.
+    @available(*, deprecated, message: "The pointer's delta counts in memory: pass a ReadingContext, implementationOffset(in: context).")
     public var implementationOffset: Int? {
         resolvedDirectOffset(from: \.implementation)
+    }
+
+    /// The offset of the implementation in `context`, `nil` for a null pointer
+    /// or one that leads to no bytes.
+    public func implementationOffset(in context: some ReadingContext) -> Int? {
+        resolvedDirectOffset(from: \.implementation, in: context)
     }
 }
 
@@ -33,7 +40,7 @@ extension MethodOverrideDescriptor {
     /// The overriding implementation's location as an address in `context`,
     /// or `nil` for a null pointer.
     public func implementationAddress<Context: ReadingContext>(in context: Context) throws -> Context.Address? {
-        guard let implementationOffset else { return nil }
+        guard let implementationOffset = implementationOffset(in: context) else { return nil }
         return try context.addressFromOffset(implementationOffset)
     }
 }

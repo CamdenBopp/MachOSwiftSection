@@ -1,5 +1,6 @@
 import BinaryParseSupport
 import MachOKitExtensions
+import MachOReading
 
 extension LocatableLayoutWrapper {
     /// The file offset a relative direct pointer field resolves to, or `nil`
@@ -11,9 +12,10 @@ extension LocatableLayoutWrapper {
     /// the field at the call site, which is what a per-field wrapper property
     /// would have said and nothing more.
     ///
-    /// Pure pointer arithmetic: no reader is involved, and the result is in
-    /// the same coordinate space as ``offset``. Attributing a symbol to that
-    /// offset belongs a layer up, in `SwiftInspection`.
+    /// The stored delta counts in memory, so `context` says where it lands:
+    /// `nil` too when that holds no bytes. The result is in the same
+    /// coordinate space as ``offset``. Attributing a symbol to that offset
+    /// belongs a layer up, in `SwiftInspection`.
     ///
     /// The key path must address a **stored** property of the concrete
     /// `Layout`. One formed inside a generic context against a layout
@@ -26,6 +28,16 @@ extension LocatableLayoutWrapper {
     /// the target when the indirect bit is clear — when it is set, the offset
     /// names the slot holding the pointer, not the pointee — so such a field's
     /// caller must rule out `isIndirect` itself before trusting the result.
+    public func resolvedDirectOffset<Pointer: RelativePointerProtocol>(from keyPath: KeyPath<Layout, Pointer>, in context: some ReadingContext) -> Int? {
+        let pointer = layout[keyPath: keyPath]
+        guard pointer.isValid else { return nil }
+        return pointer.resolveDirectOffset(from: offset(of: keyPath), in: context)
+    }
+
+    /// ``resolvedDirectOffset(from:in:)`` as `file offset + delta`, which holds
+    /// only where a pointer's segment and its target's lie the same distance
+    /// apart in the file as in memory.
+    @available(*, deprecated, message: "The delta counts in memory: pass a ReadingContext, resolvedDirectOffset(from: keyPath, in: context).")
     public func resolvedDirectOffset<Pointer: RelativePointerProtocol>(from keyPath: KeyPath<Layout, Pointer>) -> Int? {
         let pointer = layout[keyPath: keyPath]
         guard pointer.isValid else { return nil }

@@ -44,11 +44,11 @@ package final class MetadataAccessorIndex: Sendable {
             let accessorOffsetAndDescriptorOffset: (accessor: Int, descriptor: Int)?
             switch wrapper {
             case .struct(let structDescriptor):
-                accessorOffsetAndDescriptorOffset = accessorOffset(of: structDescriptor).map { ($0, structDescriptor.offset) }
+                accessorOffsetAndDescriptorOffset = accessorOffset(of: structDescriptor, in: machO).map { ($0, structDescriptor.offset) }
             case .enum(let enumDescriptor):
-                accessorOffsetAndDescriptorOffset = accessorOffset(of: enumDescriptor).map { ($0, enumDescriptor.offset) }
+                accessorOffsetAndDescriptorOffset = accessorOffset(of: enumDescriptor, in: machO).map { ($0, enumDescriptor.offset) }
             case .class(let classDescriptor):
-                accessorOffsetAndDescriptorOffset = accessorOffset(of: classDescriptor).map { ($0, classDescriptor.offset) }
+                accessorOffsetAndDescriptorOffset = accessorOffset(of: classDescriptor, in: machO).map { ($0, classDescriptor.offset) }
             }
             guard let accessorOffsetAndDescriptorOffset else { continue }
             // First wins: two descriptors sharing one accessor would be an
@@ -67,9 +67,9 @@ package final class MetadataAccessorIndex: Sendable {
     /// arithmetic, which is in-process only because it needs a loaded image to
     /// form a function pointer — the *offset* it computes on the way is
     /// exactly what an offline lookup needs.
-    private static func accessorOffset(of descriptor: some TypeContextDescriptorProtocol) -> Int? {
+    private static func accessorOffset(of descriptor: some TypeContextDescriptorProtocol, in machO: MachOFile) -> Int? {
         let relativePointer = descriptor.layout.accessFunctionPtr
         guard relativePointer.isValid else { return nil }
-        return relativePointer.resolveDirectOffset(from: descriptor.offset + descriptor.layout.offset(of: .accessFunctionPtr))
+        return relativePointer.resolveDirectOffset(from: descriptor.offset + descriptor.layout.offset(of: .accessFunctionPtr), in: machO.context)
     }
 }

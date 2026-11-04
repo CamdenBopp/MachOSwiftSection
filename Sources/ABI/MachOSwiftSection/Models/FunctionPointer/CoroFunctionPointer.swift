@@ -50,7 +50,7 @@ extension CoroFunctionPointer {
     /// The entry point's location as an address in `context` (a file offset
     /// for `MachOContext`, a pointer in-process), or `nil` for a null pointer.
     public func functionAddress<Context: ReadingContext>(in context: Context) throws -> Context.Address? {
-        guard let functionOffset = resolvedDirectOffset(from: \.function) else { return nil }
+        guard let functionOffset = resolvedDirectOffset(from: \.function, in: context) else { return nil }
         return try context.addressFromOffset(functionOffset)
     }
 }

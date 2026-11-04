@@ -285,7 +285,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
                     configuration.vtableOffsetComment(slotOffset: vtableBaseOffset + offset.index)
                 }
 
-                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset {
+                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset(in: machO.context) {
                     configuration.memberAddressComment(offset: implementationOffset, addressString: machO.addressString(forOffset: implementationOffset))
                 }
 
@@ -326,7 +326,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
                     }
                 }
 
-                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset {
+                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset(in: machO.context) {
                     configuration.memberAddressComment(offset: implementationOffset, addressString: machO.addressString(forOffset: implementationOffset))
                 }
 
@@ -344,7 +344,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
                     Space()
                     try await demangleResolver.resolve(for: node)
                     _ = methodOverrideVisitedNodes.append(StructuralNodeReferenceKey(node))
-                } else if let implementationOffset = descriptor.implementationOffset {
+                } else if let implementationOffset = descriptor.implementationOffset(in: machO.context) {
                     dumpMethodKind(for: methodDescriptor?.resolved)
                     Keyword(.override)
                     Space()
@@ -375,7 +375,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
             for (offset, descriptor) in dumped.methodDefaultOverrideDescriptors.offsetEnumerated() {
                 BreakLine()
 
-                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset {
+                if configuration.printMemberAddress, let implementationOffset = descriptor.implementationOffset(in: machO.context) {
                     configuration.memberAddressComment(offset: implementationOffset, addressString: machO.addressString(forOffset: implementationOffset))
                 }
 
@@ -390,7 +390,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
                 if let symbols = descriptor.implementationSymbols(in: machO), let node = try await validNode(for: symbols, visitedNodes: methodDefaultOverrideVisitedNodes) {
                     try await demangleResolver.resolve(for: node)
                     _ = methodDefaultOverrideVisitedNodes.append(StructuralNodeReferenceKey(node))
-                } else if let implementationOffset = descriptor.implementationOffset {
+                } else if let implementationOffset = descriptor.implementationOffset(in: machO.context) {
                     FunctionDeclaration(machO.addressString(forOffset: implementationOffset).insertSubFunctionPrefix)
                 } else {
                     Error("Symbol not found")
@@ -627,7 +627,7 @@ package struct ClassDumper<MachO: MachOFieldLayoutRenderable>: TypedDumper {
         if let node {
             try await demangleResolver.resolve(for: node)
             _ = visitedNodes.append(StructuralNodeReferenceKey(node))
-        } else if let implementationOffset = descriptor.implementationOffset {
+        } else if let implementationOffset = descriptor.implementationOffset(in: machO.context) {
             FunctionDeclaration(machO.addressString(forOffset: implementationOffset).insertSubFunctionPrefix)
         } else {
             // A null implementation with no `Tq` symbol to name it: the slot is

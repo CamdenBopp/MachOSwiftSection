@@ -62,12 +62,22 @@ public struct MachOContext<MachO: MachORepresentableWithCache & Readable>: Readi
         try machO.readString(offset: offset)
     }
 
+    /// `offset` moved `delta` bytes in memory, which is where relative
+    /// pointers count: in a file a segment can lie at a different distance
+    /// from `__TEXT` than it does in memory. A target with no file bytes comes
+    /// back as `MachORepresentableWithCache.unreadableOffset`, which reading
+    /// refuses and ``checkedAddress(_:)`` turns into an error.
     public func advanceAddress(_ offset: Int, by delta: Int) -> Int {
-        offset + delta
+        machO.advancedOffset(offset, by: delta)
     }
 
     public func advanceAddress<T>(_ address: Int, of type: T.Type) -> Int {
-        address.offseting(of: type)
+        machO.advancedOffset(address, by: MemoryLayout<T>.size)
+    }
+
+    public func checkedAddress(_ address: Int) throws -> Int {
+        guard MachO.isReadableOffset(address) else { throw ReadingError.noFileBytes }
+        return address
     }
 
     public func addressFromOffset(_ offset: Int) -> Int {
