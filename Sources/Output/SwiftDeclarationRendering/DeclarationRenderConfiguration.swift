@@ -50,6 +50,12 @@ public typealias SpareBitAnalysisTransformer = IdentifiableClosure<(analysis: Sp
 /// share it; existing call sites keep compiling through this alias.
 public typealias DumperConfiguration = DeclarationRenderConfiguration
 
+/// The words after an offset read from a class with a resilient superclass,
+/// whose position in the metadata is known only at run time.
+package enum VTableOffsetSpelling {
+    package static let relativeSuffix = " (past the resilient superclass's vtable)"
+}
+
 @MemberwiseInit(.public)
 public struct DeclarationRenderConfiguration: Sendable {
     public var demangleResolver: DemangleResolver
@@ -61,6 +67,8 @@ public struct DeclarationRenderConfiguration: Sendable {
     public var printSpareBitAnalysis: Bool = false
     public var printMemberAddress: Bool = false
     public var printVTableOffset: Bool = false
+    /// The offsets count from the end of a resilient superclass's vtable.
+    public var vtableOffsetsAreRelative: Bool = false
     public var printExpandedFieldOffsets: Bool = false
     public var printConformancePWTAddress: Bool = false
 
@@ -268,9 +276,9 @@ extension DeclarationRenderConfiguration {
         if let vtableOffsetTransformer {
             vtableOffsetTransformer((slotOffset, label))
         } else if let label {
-            Comment("VTable offset (\(label)): \(slotOffset)")
+            Comment("VTable offset (\(label)): \(slotOffset)\(vtableOffsetsAreRelative ? VTableOffsetSpelling.relativeSuffix : "")")
         } else {
-            Comment("VTable offset: \(slotOffset)")
+            Comment("VTable offset: \(slotOffset)\(vtableOffsetsAreRelative ? VTableOffsetSpelling.relativeSuffix : "")")
         }
         BreakLine()
     }

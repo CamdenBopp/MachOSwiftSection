@@ -730,7 +730,7 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         let enclosingNodes = headerNameNodes(of: definition)
         await MemberList(level: level) {
             for member in definition.orderedMembers where !isExcludedByExportFilter(member) && !synthesizedPropertyWrapperMembers.contains(member) {
-                await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
+                await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, vtableOffsetsAreRelative: (definition as? TypeDefinition)?.hasResilientSuperclass ?? false, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
             }
 
             // Terminal step: emit `deinit` for classes and noncopyable
@@ -773,13 +773,13 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         // exactly as before.
         await MemberList(level: level) {
             for member in OrderedMember.vtableOrdered(OrderedMember.allMembers(from: definition)) where !isExcludedByExportFilter(member) && !synthesizedPropertyWrapperMembers.contains(member) {
-                await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
+                await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, vtableOffsetsAreRelative: (definition as? TypeDefinition)?.hasResilientSuperclass ?? false, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
             }
         }
         for category in MemberCategory.allCases {
             await MemberList(level: level) {
                 for member in definition.members(in: category) where member.minVTableOffset == nil && !isExcludedByExportFilter(member) && !synthesizedPropertyWrapperMembers.contains(member) {
-                    await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
+                    await renderMember(member, level: level, offsetCommentPrefix: offsetCommentPrefix, offsetCommentOption: offsetCommentOption, printExportStatus: printExportStatus, vtableTransformerClosure: vtableTransformerClosure, vtableOffsetsAreRelative: (definition as? TypeDefinition)?.hasResilientSuperclass ?? false, synthesizedPropertyWrapperMembers: synthesizedPropertyWrapperMembers, enclosingNodes: enclosingNodes)
                 }
             }
         }
@@ -824,6 +824,7 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         offsetCommentOption: SwiftVisibilityOption,
         printExportStatus: Bool,
         vtableTransformerClosure: (@Sendable (Int, String?) -> SemanticString)?,
+        vtableOffsetsAreRelative: Bool,
         synthesizedPropertyWrapperMembers: SynthesizedPropertyWrapperMembers,
         enclosingNodes: [any DemanglingNode]
     ) async -> SemanticString {
@@ -837,7 +838,7 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
                     OffsetComment(prefix: offsetCommentPrefix, offset: function.offset, emit: true)
                 }
                 optionalContent(.printVTableOffset) {
-                    VTableOffsetComment(vtableOffset: function.vtableOffset, emit: true, transformer: vtableTransformerClosure)
+                    VTableOffsetComment(vtableOffset: function.vtableOffset, emit: true, transformer: vtableTransformerClosure, isRelative: vtableOffsetsAreRelative)
                 }
                 optionalContent(.printMemberAddress) {
                     AddressComment(addressString: memberAddressString(forOffset: function.symbol.offset), emit: true)
@@ -883,7 +884,7 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
                 }
                 for accessor in variable.accessors {
                     optionalContent(.printVTableOffset) {
-                        VTableOffsetComment(vtableOffset: accessor.vtableOffset, label: accessor.kind.addressLabel, emit: true, transformer: vtableTransformerClosure)
+                        VTableOffsetComment(vtableOffset: accessor.vtableOffset, label: accessor.kind.addressLabel, emit: true, transformer: vtableTransformerClosure, isRelative: vtableOffsetsAreRelative)
                     }
                     optionalContent(.printMemberAddress) {
                         AddressComment(addressString: memberAddressString(forOffset: accessor.symbol.offset), label: accessor.kind.addressLabel, emit: true)
@@ -913,7 +914,7 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
                 }
                 for accessor in `subscript`.accessors {
                     optionalContent(.printVTableOffset) {
-                        VTableOffsetComment(vtableOffset: accessor.vtableOffset, label: accessor.kind.addressLabel, emit: true, transformer: vtableTransformerClosure)
+                        VTableOffsetComment(vtableOffset: accessor.vtableOffset, label: accessor.kind.addressLabel, emit: true, transformer: vtableTransformerClosure, isRelative: vtableOffsetsAreRelative)
                     }
                     optionalContent(.printMemberAddress) {
                         AddressComment(addressString: memberAddressString(forOffset: accessor.symbol.offset), label: accessor.kind.addressLabel, emit: true)
@@ -1120,6 +1121,15 @@ extension SwiftAttribute {
         case .dynamicCallable: "@dynamicCallable"
         default: nil
         }
+    }
+}
+
+extension TypeDefinition {
+    /// Whether this class's descriptor offsets count from a resilient
+    /// superclass's vtable end rather than the start of the metadata.
+    var hasResilientSuperclass: Bool {
+        guard case .class(let descriptor) = typeContextDescriptorWrapper else { return false }
+        return descriptor.hasResilientSuperclass
     }
 }
 

@@ -383,6 +383,7 @@ extension SwiftDeclarationPrinter {
             printTypeLayout: configuration.printTypeLayout,
             printEnumLayout: configuration.printEnumLayout,
             printVTableOffset: configuration.printVTableOffset,
+            vtableOffsetsAreRelative: typeDefinition.hasResilientSuperclass,
             printExpandedFieldOffsets: configuration.printExpandedFieldOffsets,
             vtableOffsetTransformer: configuration.vtableOffsetTransformer,
             fieldOffsetTransformer: configuration.fieldOffsetTransformer,
