@@ -438,6 +438,16 @@ extension SwiftDeclarationPrinter {
         // prints in its place (`synthesizedPropertyWrapperMembers(of:)`).
         let synthesizedPropertyWrapperMembers = synthesizedPropertyWrapperMembers(of: typeDefinition)
         let renderedFields = Array(typeDefinition.fields.enumerated()).filter { !$0.element.flags.contains(.isArtificial) && !synthesizedPropertyWrapperMembers.hiddenFieldNames.contains($0.element.name) && (isEnum || !isExcludedByExportFilter(field: $0.element)) }
+        // A type the descriptor gives stored fields or cases, and no record
+        // names: `enum OE {}` reads as an enum without cases. An `@objc` enum
+        // has no field descriptor, and neither has anything built without
+        // reflection metadata.
+        if typeDefinition.fields.isEmpty, let unnamedStorageComment = unnamedStorageComment(of: typeContext) {
+            BreakLine()
+            Indent(level: level)
+            Comment(unnamedStorageComment)
+            BreakLine()
+        }
         for (offset, indexedField) in renderedFields.offsetEnumerated() {
             let fieldIndex = indexedField.offset
             let field = indexedField.element
@@ -516,6 +526,27 @@ extension SwiftDeclarationPrinter {
             if offset.isEnd {
                 BreakLine()
             }
+        }
+    }
+
+    /// What the descriptor counts that no field record names, or `nil` when
+    /// it counts nothing.
+    private func unnamedStorageComment(of typeContext: TypeContextWrapper) -> String? {
+        func plural(_ count: Int, _ noun: String) -> String {
+            "\(count) \(noun)\(count == 1 ? "" : "s")"
+        }
+        switch typeContext {
+        case .enum(let type):
+            let cases = type.descriptor.numberOfCases
+            guard cases > 0 else { return nil }
+            let payloads = type.descriptor.numberOfPayloadCases
+            return "\(plural(cases, "case"))\(payloads > 0 ? " (\(payloads) with a payload)" : ""): the binary has no field records, so no names"
+        case .struct(let type):
+            let fields = Int(type.descriptor.layout.numFields)
+            return fields > 0 ? "\(plural(fields, "stored field")): the binary has no field records, so no names" : nil
+        case .class(let type):
+            let fields = Int(type.descriptor.layout.numFields)
+            return fields > 0 ? "\(plural(fields, "stored field")): the binary has no field records, so no names" : nil
         }
     }
 
