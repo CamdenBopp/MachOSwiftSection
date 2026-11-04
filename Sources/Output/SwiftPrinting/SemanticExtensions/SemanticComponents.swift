@@ -1,3 +1,4 @@
+import SwiftDeclarationRendering
 import SwiftDeclaration
 import Semantic
 
@@ -63,11 +64,16 @@ struct VTableOffsetComment: SemanticStringComponent {
 
     let transformer: (@Sendable (Int, String?) -> SemanticString)?
 
-    init(vtableOffset: Int?, label: String? = nil, emit: Bool, transformer: (@Sendable (Int, String?) -> SemanticString)?) {
+    /// The class has a resilient superclass, so its descriptor's offsets count
+    /// from the end of a vtable whose size is known only at run time.
+    let isRelative: Bool
+
+    init(vtableOffset: Int?, label: String? = nil, emit: Bool, transformer: (@Sendable (Int, String?) -> SemanticString)?, isRelative: Bool = false) {
         self.vtableOffset = vtableOffset
         self.label = label
         self.emit = emit
         self.transformer = transformer
+        self.isRelative = isRelative
     }
 
     package func buildComponents() -> [AtomicComponent] {
@@ -76,9 +82,9 @@ struct VTableOffsetComment: SemanticStringComponent {
         if let transformer {
             return transformer(vtableOffset, label).buildComponents()
         } else if let label {
-            return Comment("VTable offset (\(label)): \(vtableOffset)").buildComponents()
+            return Comment("VTable offset (\(label)): \(vtableOffset)\(isRelative ? VTableOffsetSpelling.relativeSuffix : "")").buildComponents()
         } else {
-            return Comment("VTable offset: \(vtableOffset)").buildComponents()
+            return Comment("VTable offset: \(vtableOffset)\(isRelative ? VTableOffsetSpelling.relativeSuffix : "")").buildComponents()
         }
     }
 }
