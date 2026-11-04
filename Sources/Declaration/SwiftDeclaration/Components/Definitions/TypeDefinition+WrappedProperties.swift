@@ -15,6 +15,12 @@ import SwiftDeclarationRendering
 /// another image). A field whose type is not a wrapper — a hand-written
 /// `_manual` behind a computed `manual` — is left alone: `Int` has no
 /// `wrappedValue`.
+///
+/// A wrapper-typed `_x` beside an `x` is also what a hand-written pair looks
+/// like, so the shape alone proves nothing and neither does `@propertyWrapper`,
+/// which is not in the binary. The proof is the backing initializer the
+/// compiler emits for each wrapped property and nothing else (`…vpfP`). Without
+/// it `_x` stays the stored field the record says it is.
 extension TypeDefinition {
     package func recoverWrappedProperties(in machO: some MachOSwiftSectionRepresentableWithCache) {
         @Dependency(\.symbolIndexStore)
@@ -41,27 +47,18 @@ extension TypeDefinition {
             )
             guard let evidence = ownImageEvidence ?? catalog.evidence(forWrapperCandidate: wrapperNominalTypeNode) else { continue }
 
-            let declaredMember = variables.first { $0.name == propertyName }
-            let origin: WrappedPropertyDefinition.Origin
-            let declaredTypeNode: Node?
-            if let declaredMember {
-                origin = .declaredMember
-                declaredTypeNode = WrappedPropertyRecovery.declaredTypeNode(of: declaredMember)
-            } else {
-                // The accessors are stripped: the declaration has to be
-                // rebuilt from the wrapper's own `wrappedValue` type with the
-                // field's generic arguments substituted. A wrapper whose
-                // `wrappedValue` type the substitution cannot express is not
-                // guessed at; `_x` then stays a stored field.
-                guard let wrappedValueTypeNode = evidence.wrappedValueTypeNode,
-                      let substitutedTypeNode = WrappedPropertyRecovery.substitutingGenericArguments(ofBoundType: fieldTypeNode, into: wrappedValueTypeNode)
-                else { continue }
-                origin = .synthesized(
-                    declaredTypeNode: InternedNodeReferenceCache.shared.reference(interning: substitutedTypeNode, in: machO),
-                    hasSetter: evidence.hasSetter
-                )
-                declaredTypeNode = substitutedTypeNode
-            }
+            // `x`'s accessors are stripped, or `x` has no backing initializer:
+            // nothing shows the source declared `x` with this wrapper, and a
+            // declaration rebuilt from `wrappedValue` would be invented.
+            guard let declaredMember = variables.first(where: { $0.name == propertyName }),
+                  declaredMember.accessors.contains(where: { accessor in
+                      WrappedPropertyRecovery.backingInitializerSymbolName(ofAccessorNamed: accessor.symbol.name).map {
+                          symbolIndexStore.containsSymbol(named: $0, in: machO)
+                      } ?? false
+                  })
+            else { continue }
+            let origin = WrappedPropertyDefinition.Origin.declaredMember
+            let declaredTypeNode = WrappedPropertyRecovery.declaredTypeNode(of: declaredMember)
             let attributeTypeNode = WrappedPropertyRecovery.attributeTypeNode(
                 fieldTypeNode: fieldTypeNode,
                 wrapperNominalTypeNode: wrapperNominalTypeNode,
