@@ -1,6 +1,7 @@
 import SwiftDeclaration
 import SwiftDeclarationRendering
 import SwiftInspection
+import MachOSwiftSection
 import Demangling
 import Semantic
 
@@ -325,18 +326,69 @@ extension TypeNodePrintable {
     ///
     /// What DOES need them is ORDER: with several primaries, the requirement
     /// list is canonically sorted, not declaration-ordered, so `P<A, B>` and
-    /// `P<B, A>` are indistinguishable from here. That case degrades to a bare
-    /// `any P` rather than guessing — an argument list in the wrong order is a
-    /// real, wrong, compiling type. No sample in the surveyed binaries has
-    /// more than one requirement; wiring the multi-primary order through
-    /// `ProtocolFactsResolver` is left to the follow-up noted in the proposal.
+    /// `P<B, A>` are indistinguishable from here, and the binary records no
+    /// primary order. Those arguments print by name (`any P<A == Int, B ==
+    /// String>`): not source, but true, where a bare `any P` is another type
+    /// and a positional list a guess. A composition prints the same way, since
+    /// `<Int>` after it would read as an argument of its last protocol.
+    ///
+    /// An inverse requirement is part of the type too (`any ~Copyable`, `any P
+    /// & ~Copyable`); without it the type is the copyable `Any` or `any P`.
     mutating func printConstrainedExistential(_ name: Node) async {
-        await printFirstChild(name, prefix: "any ", prefixContext: .context(for: name, state: .printKeyword))
-        guard let requirementList = name.children.at(1),
-              requirementList.children.count == 1,
-              let argument = primaryAssociatedTypeArgument(ofRequirement: requirementList.children[0])
-        else { return }
-        await printOptional(argument, prefix: "<", suffix: ">")
+        let requirements: [Node] = name.children.at(1).map { Array($0.children) } ?? []
+        let inverses = requirements.filter { $0.kind == .dependentGenericInverseConformanceRequirement }
+        let others = requirements.filter { $0.kind != .dependentGenericInverseConformanceRequirement }
+        let protocolCount = name.children.first?.first(of: .typeList)?.children.count ?? 0
+        let isComposition = protocolCount != 1 || name.children.first?.first(of: .protocolListWithClass, .protocolListWithAnyObject) != nil
+        let isEmptyList = protocolCount == 0 && name.children.first?.first(of: .protocolListWithClass, .protocolListWithAnyObject) == nil
+
+        target.write("any ", context: .context(for: name, state: .printKeyword))
+        if isEmptyList, !inverses.isEmpty {
+            // `any ~Copyable`: nothing to join the inverse to.
+        } else if isComposition, !others.isEmpty {
+            target.write("(")
+            await printOptional(name.children.first)
+            target.write(")")
+        } else {
+            await printOptional(name.children.first)
+        }
+
+        if !others.isEmpty {
+            target.write("<")
+            if others.count == 1, !isComposition, let argument = primaryAssociatedTypeArgument(ofRequirement: others[0]) {
+                await printName(argument)
+            } else {
+                for (index, requirement) in others.enumerated() {
+                    if index > 0 { target.write(", ") }
+                    await printNamedExistentialRequirement(requirement)
+                }
+            }
+            target.write(">")
+        }
+
+        for (index, inverse) in inverses.enumerated() {
+            if !(isEmptyList && index == 0) { target.write(" & ") }
+            target.write("~")
+            switch inverse.children.at(1)?.index {
+            case 0: await printName(InvertibleProtocolSet.copyableProtocolTypeNode)
+            case 1: await printName(InvertibleProtocolSet.escapableProtocolTypeNode)
+            default: target.write("?")
+            }
+        }
+    }
+
+    /// `Element == Swift.Int` for a same-type requirement on an associated
+    /// type of `Self`; anything else as the requirement prints.
+    private mutating func printNamedExistentialRequirement(_ requirement: Node) async {
+        guard let argument = primaryAssociatedTypeArgument(ofRequirement: requirement),
+              let associatedTypeName = requirement.children.at(0)?.first(of: .dependentAssociatedTypeRef)?.children.first?.text
+        else {
+            await printName(requirement)
+            return
+        }
+        target.write(associatedTypeName)
+        target.write(" == ")
+        await printName(argument)
     }
 
     /// The right-hand side of a `Self.Associated == Argument` requirement, or
@@ -402,12 +454,61 @@ extension TypeNodePrintable {
         await printOptional(name.children.at(name.children.count == 2 ? 1 : 0), suffix: ".Type")
     }
 
+    /// A constrained existential a field record, superclass or witness names
+    /// through an extended existential shape: a symbolic reference to the
+    /// shape, then the shape's generic arguments. The existential is the
+    /// shape's type with each argument put back; the arguments alone are a
+    /// different, wrong type (`any P<Int>` read as `Swift.Int`). A shape that
+    /// does not read prints `?`.
     mutating func printSymbolicExtendedExistentialType(_ name: Node) async {
-        guard let second = name.children.at(1) else { return }
-        await printName(second)
-        if let third = name.children.at(2) {
-            target.write(", ")
-            await printName(third)
+        guard let existential = ExtendedExistentialShape.existential(of: name) else {
+            target.write("?")
+            return
+        }
+        await printName(existential)
+    }
+}
+
+/// Reads a `symbolicExtendedExistentialType` node: the shape's reference, whose
+/// child is the existential written over the shape's generalization signature
+/// (`any Source<τ_0_0>`), then the arguments for that signature.
+private enum ExtendedExistentialShape {
+    static func existential(of node: Node) -> Node? {
+        let children = Array(node.children)
+        guard children.count == 2,
+              children[0].kind == .uniqueExtendedExistentialTypeShapeSymbolicReference
+              || children[0].kind == .nonUniqueExtendedExistentialTypeShapeSymbolicReference,
+              children[0].children.count == 1,
+              children[1].kind == .typeList
+        else { return nil }
+        let substituter = ParameterSubstituter(arguments: Array(children[1].children))
+        let existential = substituter.rewrite(children[0].children[0])
+        return substituter.failed ? nil : existential
+    }
+
+    /// Replaces `τ_0_i` with the i-th argument. The generalization signature
+    /// is the shape's only signature, so every parameter is at depth 0; any
+    /// other parameter, or an index past the arguments, fails the shape.
+    private final class ParameterSubstituter: Node.Rewriter {
+        let arguments: [Node]
+        var failed = false
+
+        init(arguments: [Node]) {
+            self.arguments = arguments
+        }
+
+        override func visit(_ node: Node) -> Node {
+            guard node.kind == .type, node.children.count == 1,
+                  let parameter = node.children.first, parameter.kind == .dependentGenericParamType
+            else { return node }
+            let indices = Array(parameter.children)
+            guard indices.count == 2, let depth = indices[0].index, let index = indices[1].index,
+                  depth == 0, index < arguments.count
+            else {
+                failed = true
+                return node
+            }
+            return arguments[Int(index)]
         }
     }
 }

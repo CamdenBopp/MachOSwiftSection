@@ -639,7 +639,11 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         }
 
         if let genericSignature = extensionDefinition.genericSignature {
-            let nodes = genericSignature.all(of: .printableRequirementKinds)
+            // Walks the whole tree: a constrained existential's own
+            // requirements are about its `Self`, not this extension.
+            let nodes = genericSignature.all(of: .printableRequirementKinds).filter {
+                $0.children.first?.first(of: .constrainedExistentialSelf) == nil
+            }
             for (index, node) in nodes.enumerated() {
                 if index == 0 {
                     Space()
