@@ -301,11 +301,18 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
         // Emit type-level attributes, each on its own line before the declaration
         for attribute in attributes {
             Indent(level: level - 1)
-            Keyword(attribute.keyword)
-            // `@objc(NSColorModel)`: the runtime name a renamed class carries
-            // (evolution proposal `objc-custom-class-name`).
-            if let argument = typeDefinition.attributeArgument(for: attribute) {
-                Standard("(\(argument))")
+            // These four leave nothing in the binary, and any type may declare
+            // the member they are read from: a comment says what was seen
+            // without claiming the source wrote the attribute.
+            if let spelling = attribute.spellingInferredFromMemberName {
+                Comment("\(spelling) inferred from a member's name; the binary does not record it")
+            } else {
+                Keyword(attribute.keyword)
+                // `@objc(NSColorModel)`: the runtime name a renamed class carries
+                // (evolution proposal `objc-custom-class-name`).
+                if let argument = typeDefinition.attributeArgument(for: attribute) {
+                    Standard("(\(argument))")
+                }
             }
             BreakLine()
         }
@@ -1069,6 +1076,19 @@ public final class SwiftDeclarationPrinter<MachO: MachOFieldLayoutRenderable>: S
     private var vtableOffsetTransformerClosure: (@Sendable (Int, String?) -> SemanticString)? {
         guard let transformer = configuration.vtableOffsetTransformer else { return nil }
         return { slotOffset, label in transformer((slotOffset, label)) }
+    }
+}
+
+extension SwiftAttribute {
+    /// The attribute's source spelling, when all it rests on is a member name.
+    fileprivate var spellingInferredFromMemberName: String? {
+        switch self {
+        case .propertyWrapper: "@propertyWrapper"
+        case .resultBuilder: "@resultBuilder"
+        case .dynamicMemberLookup: "@dynamicMemberLookup"
+        case .dynamicCallable: "@dynamicCallable"
+        default: nil
+        }
     }
 }
 

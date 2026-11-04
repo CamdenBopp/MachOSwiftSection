@@ -71,6 +71,16 @@ package enum WrappedPropertyRecovery {
         return node.children.first(where: { $0.kind == .type })
     }
 
+    /// The property wrapper backing initializer's symbol for the property an
+    /// accessor belongs to: `…vpfP` for `…vg`, `…vs` and the like. `nil` for a
+    /// name without that shape.
+    package static func backingInitializerSymbolName(ofAccessorNamed name: String) -> String? {
+        guard name.count > 2 else { return nil }
+        let stem = name.dropLast(2)
+        guard name.suffix(2).first == "v", ["g", "s", "M", "r", "x", "y"].contains(String(name.suffix(1))) else { return nil }
+        return String(stem) + "vpfP"
+    }
+
     /// The evidence this image's own symbols give for a wrapper candidate:
     /// its `wrappedValue` accessor symbols, if the index holds any.
     package static func evidence(fromWrappedValueSymbols symbols: [DemangledSymbol]) -> PropertyWrapperEvidence? {
