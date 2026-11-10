@@ -58,7 +58,7 @@ extension MemorySequence {
             defer { nextIndex += 1 }
             return basePointer
                 .advanced(by: nextIndex * entrySize)
-                .load(as: Element.self)
+                .loadUnaligned(as: Element.self)
         }
     }
 }
@@ -78,7 +78,7 @@ extension MemorySequence: Collection {
         precondition(position < endIndex)
         return basePointer
             .advanced(by: position * entrySize)
-            .load(as: Element.self)
+            .loadUnaligned(as: Element.self)
     }
 }
 

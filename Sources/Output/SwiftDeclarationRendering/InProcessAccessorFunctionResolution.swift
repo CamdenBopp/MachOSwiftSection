@@ -40,7 +40,7 @@ package enum InProcessAccessorFunctionResolution {
         // A class's first word is its isa pointer, which does not fit a
         // `MetadataKind`; the runtime makes the same "larger than the last
         // enumerated kind" test.
-        let kindWord = metadataPointer.load(as: UInt.self)
+        let kindWord = metadataPointer.loadUnaligned(as: UInt.self)
         guard kindWord <= UInt(UInt32.max), let metadataKind = MetadataKind(rawValue: UInt32(kindWord)) else { return nil }
 
         let witnessType: Any.Type?

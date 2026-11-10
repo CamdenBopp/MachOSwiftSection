@@ -104,7 +104,7 @@ public enum RuntimeEnumCaseProjector {
             as: UnsafeRawPointer.self
         )
         guard let tablePointer = try? signedTablePointer.stripPointerTags() else { return nil }
-        let requiredWitnesses = tablePointer.load(as: ValueWitnessTable.Layout.self)
+        let requiredWitnesses = tablePointer.loadUnaligned(as: ValueWitnessTable.Layout.self)
         guard requiredWitnesses.flags.hasEnumWitnesses else { return nil }
 
         let size = Int(requiredWitnesses.size)

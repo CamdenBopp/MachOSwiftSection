@@ -66,7 +66,7 @@ extension DataSequence {
 
             return data.withUnsafeBytes {
                 guard let baseAddress = $0.baseAddress else { return nil }
-                return baseAddress.advanced(by: nextOffset).load(as: Element.self)
+                return baseAddress.advanced(by: nextOffset).loadUnaligned(as: Element.self)
             }
         }
     }
@@ -92,7 +92,7 @@ extension DataSequence: Collection {
             }
             return baseAddress
                 .advanced(by: position * entrySize)
-                .load(as: Element.self)
+                .loadUnaligned(as: Element.self)
         }
     }
 }

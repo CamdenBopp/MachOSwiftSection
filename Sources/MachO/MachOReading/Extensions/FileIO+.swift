@@ -109,7 +109,7 @@ extension MachONamespace where Base: _FileIOProtocol {
 
         if let swapHandler { swapHandler(&data) }
         return data.withUnsafeBytes {
-            $0.load(as: Element.self)
+            $0.loadUnaligned(as: Element.self)
         }
     }
 
@@ -124,7 +124,7 @@ extension MachONamespace where Base: _FileIOProtocol {
         try throwIfInvalid(data.count >= MemoryLayout<Element>.size, error: .invalidDataSize)
         if let swapHandler { swapHandler(&data) }
         return data.withUnsafeBytes {
-            $0.load(as: Element.self)
+            $0.loadUnaligned(as: Element.self)
         }
     }
 
@@ -140,7 +140,7 @@ extension MachONamespace where Base: _FileIOProtocol {
         try throwIfInvalid(data.count >= Element.layoutSize, error: .invalidDataSize)
         if let swapHandler { swapHandler(&data) }
         return data.withUnsafeBytes {
-            $0.load(as: Element.self)
+            $0.loadUnaligned(as: Element.self)
         }
     }
 
@@ -155,7 +155,7 @@ extension MachONamespace where Base: _FileIOProtocol {
         try throwIfInvalid(data.count >= MemoryLayout<Element>.size, error: .invalidDataSize)
         if let swapHandler { swapHandler(&data) }
         return data.withUnsafeBytes {
-            $0.load(as: Element.self)
+            $0.loadUnaligned(as: Element.self)
         }
     }
 }
